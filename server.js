@@ -37,6 +37,56 @@ app.get('/', (req, res) => {
 //     console.log((result))
 // })
 
+app.get('/api/parties', (req, res) => {
+    const sql = `SELECT * FROM parties`;
+    db.query(sql, (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({
+            message: 'success',
+            data: rows
+        })
+    })
+})
+
+app.get('/api/party/:id', (req, res) => {
+    const sql = `SELECT * FROM parties WHERE id = ?`
+    const params = [req.params.id];
+
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            res.status(400).json({ error: err.message })
+            return;
+        }
+        res.json({
+            message: 'success',
+            data: result
+        })
+    })
+})
+
+app.delete('/api/party/:id', (req, res) => {
+    const sql = `DELETE FROM parties WHERE id = ?`
+    const params = [req.params.id]
+
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            res.send(400).json({ error: err.message })
+        } else if (!result.affectedRows) {
+            res.json({
+                message: 'Party not found'
+            });
+        } else {
+            res.json({
+                message: 'deleted',
+                data: result.affectedRows,
+                id: req.params.id
+            })
+        }
+    })
+})
  
 app.delete('/api/candidate/:id', (req, res) => {
     const sql = "DELETE FROM candidates WHERE id = ?"
@@ -83,7 +133,12 @@ app.post('/api/candidate', ({ body }, res) => { // use object destructuring to p
 
 
 app.get('/api/candidate/:id', (req, res) => {
-    const sql = `SELECT * FROM candidates WHERE id = ?`
+    const sql = `SELECT candidates.*, parties.id
+                 AS party_name
+                 FROM candidates
+                 LEFT JOIN parties
+                 ON candidates.party_id = parties.id`
+
     const params = [req.params.id]
     
     db.query(sql, params, (err, row) => {
@@ -98,11 +153,13 @@ app.get('/api/candidate/:id', (req, res) => {
     })
 })
 
-
-
 // get all candidates
 app.get('/api/candidates', (req, res) => {
-    const sql = `SELECT * FROM candidates`
+    const sql = `SELECT candidates.*, parties.name
+                 AS party_name
+                 FROM candidates
+                 LEFT JOIN parties
+                 ON candidates.party_id = parties.id`
 
     db.query(sql, (err, rows) => {
         if (err) {
@@ -113,6 +170,33 @@ app.get('/api/candidates', (req, res) => {
             message: 'success',
             data: rows
         })
+    })
+})
+
+app.put('/api/candidates/:id', (req, res) => {
+    const errors = inputCheck(req.body, 'party_id')
+    if (errors) {
+        res.status(400).json({ error: errors })
+        return;
+    }
+
+    const sql = `UPDATE candidates SET party_id = ? WHERE id = ?`
+    const params = [req.body.party_id, req.params.id]
+
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            res.status(400).json({ error: err.message })
+        } else if (!result.affectedRows) {
+            res.json({
+                message: 'Candidate not found'
+            })
+        } else {
+            res.json({
+                message: 'Success',
+                data: req.body,
+                changes: result.affectedRows
+            })
+        }
     })
 })
 
